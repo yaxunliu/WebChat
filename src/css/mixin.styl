@@ -1,0 +1,27 @@
+clearfix()
+  &::after
+    display: block;
+    content: "";
+    clear: both;
+leftarrowbubble(left,top,width,bgcolor)
+  &::after
+    position absolute
+    left left
+    top top
+    content ''
+    width 0
+    height 0
+    font-size 0
+    border width solid bgcolor
+    border-color rgba(1,1,1,0) bgcolor rgba(1,1,1,0) rgba(1,1,1,0)
+rightarrowbubble(left,top,width,bgcolor)
+  &::after
+    position absolute
+    right left
+    top top
+    content ''
+    width 0
+    height 0
+    font-size 0
+    border width solid bgcolor
+    border-color rgba(1,1,1,0) rgba(1,1,1,0) rgba(1,1,1,0) bgcolor
