@@ -56,7 +56,7 @@
           <div class="chat-send-voice">
             <a href="#"><img src="../../assets/images/send_voice.png"></a>
           </div>
-          <span>5s</span>
+          <span>5"</span>
         </li>
         <li class="chat-receive-voice-warapper">
           <p class="chat-time">09:56:23</p>
@@ -64,7 +64,7 @@
           <div class="chat-receive-voice">
             <a href="#"><img src="../../assets/images/receive_voice.png"></a>
           </div>
-          <span>5s</span>
+          <span>5"</span>
         </li>
       </ul>
     </div>

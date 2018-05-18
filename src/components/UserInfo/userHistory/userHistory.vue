@@ -1,18 +1,16 @@
 <!-- 用户端历史记录组件 -->
 <template>
   <div class="user-history-waraaper">
-      <div class="user-history-header">
+      <div class="user-history-header" >
         <p>聊天记录</p>
+        <audio ref="audio"></audio>
       </div>
       <div class="user-history-content">
-        <ul style="overflow:auto;height:100%"><li v-for="item in currentPageHistory" :key="item.msg_id" style="font-size: 14px; line-height: 20px;">
-          <span v-if="item.from_nick === loginnick" class="history-header" style="color: #f29930; padding: 0 18px">{{item.from_nick}}    {{item.ctime.replace(/-/g,'/')}}</span>
-          <span v-else style="color: #3091f2; padding: 0 18px">{{item.from_nick}}      {{item.ctime.replace(/-/g,'/')}}</span>
-          <p v-if="item.msg_type === '1'" style="color: #333; padding: 8px 18px;">{{item.content}}</p>
-          <a v-else-if="item.msg_type === '3'" class="history-voice-wraaper" href="#">
-            <span>5"</span>
-            <img src="../../../assets/images/historyvoice.png">
-          </a>
+        <ul style="overflow:auto;height:100%"><li v-for="item in currentPageHistory" :key="item.msg_id" style="font-size: 14px; line-height: 20px;padding-bottom: 12px">
+          <p v-if="item.from_nick === loginnick" class="history-header" style="color: #f29930; padding: 0 18px;">{{item.from_nick}}    {{item.ctime.replace(/-/g,'/')}}</p>
+          <p v-else style="color: #3091f2; padding: 0 18px;">{{item.from_nick}}      {{item.ctime.replace(/-/g,'/')}}</p>
+          <p v-if="item.msg_type === '1'" style="color: #333; padding: 8px 18px 0 18px;">{{item.content}}</p>
+          <a v-else-if="item.msg_type === '3'" :style='initinalVoiceStyle(item)' @click="_palyHistoryVoice(item)" class="history-voice-wraaper" href="#"><span>{{JSON.parse(item.ext_info).voice_len}}"</span><img :src="item.play ? require('../../../assets/images/play.gif') : require('../../../assets/images/historyvoice.png')"></a>
           <a v-else class="history-img-wraaper" href="#">
             <img :src="baseUrl + item.url">
           </a>
@@ -37,13 +35,17 @@ export default {
       'allHistory': {},
       'page': 1,
       'lastPageCantouch': false,
-      'baseurl': ''
+      'baseurl': '',
+      'currentPlayitem': null
     }
   },
   mounted () {
     console.log('baseUrl', baseUrl)
     this.baseUrl = baseUrl
     jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': '5552'}).then((res) => {
+      for (let key in res) {
+        res[key].play = false
+      }
       this.currentPageHistory = res
       this.allHistory[this.page] = res
     }).catch((err) => {
@@ -54,10 +56,16 @@ export default {
     _clickNextPage () {
       if (this.allHistory[this.page + 1] !== undefined) {
         this.page += 1
+        this.lastPageCantouch = true
         this.currentPageHistory = this.allHistory[this.page]
+        this._stopCurrentPlayVoice()
         return 0
       }
       jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': '5552', 'msg_id': this.currentPageHistory[0].msg_id}).then((res) => {
+        this._stopCurrentPlayVoice()
+        for (let key in res) {
+          res[key].play = false
+        }
         this.currentPageHistory = res
         this.page += 1
         this.allHistory[this.page] = res
@@ -71,6 +79,7 @@ export default {
         this.lastPageCantouch = false
         return 0
       } else {
+        this._stopCurrentPlayVoice()
         this.page -= 1
         if (this.page === 1) {
           this.lastPageCantouch = false
@@ -78,8 +87,47 @@ export default {
         this.currentPageHistory = this.allHistory[this.page]
       }
     },
-    _palyHistoryVoice (url) {
-      alert('播放音乐')
+    _stopCurrentPlayVoice () {
+      if (this.currentPlayitem !== null) {
+        var audio = this.$refs.audio
+        if (!audio.ended) {
+          audio.pause()
+        }
+        this.currentPlayitem.play = false
+        this.currentPlayitem = null
+      }
+    },
+    _begainPlayCurrentVoice () {
+      if (this.currentPlayitem === null) {
+        console.log('语音资源为null', this.currentPlayitem)
+        return
+      }
+      let voiceurl = this.baseUrl + this.currentPlayitem.mp3_url
+      var audio = this.$refs.audio
+      audio.src = voiceurl
+      audio.play().then(() => {
+        console.log('huidiao')
+      }).catch(() => {
+        alert('您的浏览器无法播放语音')
+        this._stopCurrentPlayVoice()
+      })
+      audio.onended = () => {
+        this._stopCurrentPlayVoice()
+      }
+    },
+    _palyHistoryVoice (item) {
+      item.play = !item.play
+      if (item.play) { // 当前正在播放的
+        this._stopCurrentPlayVoice()
+        this.currentPlayitem = item
+        this._begainPlayCurrentVoice()
+      } else {
+        this._stopCurrentPlayVoice()
+      }
+    },
+    initinalVoiceStyle (item) {
+      let sec = parseInt(JSON.parse(item.ext_info).voice_len)
+      return {width: (sec / 20 * 10) + 40 + 'px'}
     }
   }
 }
@@ -109,32 +157,33 @@ export default {
     border-bottom-right-radius 4px
     .history-voice-wraaper
       display inline-block
-      width 100px
+      max-width 60%
       height 34px
+      margin-top 10px
       background-color  #3091f2
       margin-left 40px
       border-radius 4px
       position relative
       span
         leftarrowbubble(-8px,8px,4px,#3091f2)
-        line-height 33px
+        line-height 34px
         margin-left 4px
-        font-size 12px
+        font-size 8px
         color white
         float left
       img
         display block
         float left
-        width 20px
-        height 20px
-        margin-top 7px
-        margin-left 5px
+        width 14px
+        margin-top 10px
     .history-img-wraaper
       display block
+      padding 10px 0
       margin-left 40px
       max-width 100px
       max-height 300px
-      padding 10px 0
+      min-width 30px
+      min-height 30px
       img
         display block
         width 100%
