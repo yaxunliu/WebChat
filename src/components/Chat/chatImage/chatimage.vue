@@ -3,7 +3,7 @@
   <div v-if="item === null"></div>
   <div v-else-if="item.receiver" class="chat-receive-image-warapper">
     <p v-if="item.showtime" class="chat-time">{{_transformTime(item.ctime)}}</p>
-    <img class="chat-receive-header" :src="baseUrl + item.from_head_img">
+    <img class="chat-receive-header" :src="_transformImgSrc(item.from_head_img)">
     <div class="chat-receive-image">
       <a href="#"><img class="send-image" :src="_bindSrc(item)"></a>
     </div>
@@ -15,7 +15,7 @@
       <img v-else-if="item.status === 1" src="../../../assets/images/loading.gif" class="send-loading">
       <a v-else href="#" @click="_resendmessage(item)"><img class="send-loading" src="../../../assets/images/error.png"></a>
       <a><img class="send-image" :src="_bindSrc(item)"></a>
-      <img class="chat-send-header" :src="baseUrl + item.from_head_img">
+      <img class="chat-send-header" :src="_transformImgSrc(item.from_head_img)">
     </div>
   </div>
 </template>
@@ -34,21 +34,21 @@ export default {
   },
   mounted () {
     this.resendfn = this.$attrs.resendimage
-    console.log(typeof this.resendfn)
     this.baseUrl = baseUrl
     this.item = this.$attrs.item
   },
   methods: {
+    _transformImgSrc (src) {
+      let reg = /^http/g
+      return reg.test(src) ? src : baseUrl + src
+    },
     _transformTime (ctime) {
-      console.log(ctime)
       return formatMsgTime(ctime)
     },
     _bindSrc: (item) => {
       if (item.src === undefined) {
-        console.log(baseUrl + item.url)
         return baseUrl + item.url
       } else {
-        console.log(item.src)
         return item.src
       }
     },

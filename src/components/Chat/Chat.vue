@@ -1,8 +1,8 @@
 <template>
 <!-- 聊天内容组件 -->
-  <div class="chat-warraper">
+  <div class="chat-warapper">
     <div class="chat-header">
-      天天老师
+      {{chatObj.nick}}
     </div>
     <div class="chat-content">
       <ul ref="chatscroll">
@@ -40,14 +40,24 @@ import Chatemojilist from './chatEmoji/chatEmojiList'
 import emojiJson from '../../assets/images/emoji.json'
 import { replcestr } from '../../common/category.js'
 export default {
+  props: {
+    chatObj: { // 当前聊天对象的用户信息
+      type: [Object],
+      default: function () {
+        return null
+      }
+    },
+    loginInfo: {
+      type: Object,
+      default: function () {
+        return [ ]
+      }
+    }
+  },
   data () {
     return {
       'user_id': '109486', // 当前用户的id
-      'user_head_img': '/upload/head/2018/2/201802011019187269.jpg', // 当前用户的头像
-      'chat_ids': ['5552'], // 聊天对象的id列表
-      'chat_head_img': '', // 聊天对象的头像
       'chathistory': [ ], // 聊天历史数据
-      'item': null,
       'unreachQueue': {}, // 正在发送中的消息队列
       'showemojilist': false,
       'emojipath': '/static/emjoy/'
@@ -59,21 +69,15 @@ export default {
     Chatimage,
     Chatemojilist
   },
+  watch: {
+    chatObj: function () {
+      // 1.存储当前聊天的信息
+      // 2.加载聊天历史数据
+      this._loadHistoryData()
+    }
+  },
   mounted () {
-    // this.user_head_img = this.$attrs.chatinfo['user_head_img']
-    // this.user_id = this.$attrs.chatinfo['user_id']
-    // this.chat_ids = this.$attrs.chatinfo['chat_ids']
-    // this.chat_head_img = this.$attrs.chatinfo['chat_head_img']
-    jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': '5552'}).then((res) => {
-      res.map((value, index, arr) => {
-        if (index === 0) {
-          this._filterReceiveText(0, value)
-        } else {
-          this._filterReceiveText(arr[index - 1], value)
-        }
-      })
-      this.chathistory = res
-    })
+    this._loadHistoryData()
   },
   updated () {
     var height = this.$refs.chatitem.reduce((pre, cur) => {
@@ -88,6 +92,20 @@ export default {
     this.$refs.chatscroll.scrollTop = height
   },
   methods: {
+    _loadHistoryData () {
+      jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': this.chatObj.id}).then((res) => {
+        res.map((value, index, arr) => {
+          // 1.过滤表情符号
+          if (index === 0) {
+            this._filterReceiveText(0, value)
+          } else {
+            this._filterReceiveText(arr[index - 1], value)
+          }
+        })
+        this.chathistory = null
+        this.chathistory = res
+      })
+    },
     _filterReceiveText (lastitem, item) {
       // 1.初始化状态值
       if (item['msg_type'] === '3') {
@@ -99,7 +117,7 @@ export default {
       // 2.判断当前消息是否显示时间
       item.showtime = lastitem === 0 ? true : this._isShowTime(lastitem, item)
       // 3.当前用户是否是消息接收者
-      item.receiver = item.to_uid === this.user_id
+      item.receiver = item.to_uid === this.loginInfo.uid
       // 4.过滤表情图片
       item.innerHTML = this._filterText(item.content)
     },
@@ -122,16 +140,16 @@ export default {
     },
     // 选择了图片
     _onInputchange (e, type) {
-      // let files = e.target.files || e.dataTransfer.files
-      // if (!files.length) return
-      // if (files[0].type.indexOf('image') < 0) {
-      //   alert('上传了非图片')
-      //   return
-      // }
-      // if (files[0].size > 5 * 1000000) {
-      //   alert('上传文件过大')
-      //   return
-      // }
+      let files = e.target.files || e.dataTransfer.files
+      if (!files.length) return
+      if (files[0].type.indexOf('image') < 0) {
+        alert('上传了非图片')
+        return
+      }
+      if (files[0].size > 5 * 1000000) {
+        alert('上传文件过大')
+        return
+      }
       let reader = new FileReader()
       reader.onload = (eve) => {
         let src = eve.currentTarget.result
@@ -150,16 +168,16 @@ export default {
       let content = this._filterHTML(innerHTML, innerText)
       let timeinterval = new Date().getTime()
       let msgId = timeinterval.toString()
-      let jsonstr = {'action': 'post_text', 'mid': msgId, 'data': {'target': this.chat_ids, 'target_type': 'user', 'content': content}}.toString()
+      let jsonstr = {'action': 'post_text', 'mid': msgId, 'data': {'target': this.chatObj.id, 'target_type': 'user', 'content': content}}.toString()
       this._sendMessage(jsonstr)
       this.unreachQueue[msgId] = jsonstr
       // 分2种情况,一种是群发,一种是单发
-      let textitem = {'msg_id': msgId, content: content, 'from_uid': this.user_id, 'msg_type': '1'}
+      let textitem = {'msg_id': msgId, content: content, 'from_uid': this.loginInfo.uid, 'msg_type': '1'}
       let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
       textitem['showtime'] = minus > 60000
-      textitem['from_head_img'] = this.user_head_img
-      textitem['to_uid'] = this.chat_ids.toString()
-      textitem['to_head_img'] = this.chat_head_img
+      textitem['from_head_img'] = this.loginInfo.header
+      textitem['to_uid'] = this.chatObj.id.toString()
+      textitem['to_head_img'] = this.chatObj.head_img
       textitem['status'] = 2
       textitem['ctime'] = timeinterval
       textitem['innerHTML'] = innerHTML
@@ -202,6 +220,7 @@ export default {
           let title = locations['0']
           let locationIndex = locations['index']
           let src = this._filterEmojiSrc(title)
+          if (src === undefined) { continue } // 过滤不存在的emoji
           let ele = `${'<img style="display: inline-block;height: 20px; vertical-align: middle"'} src="${src}" text="${title}">`
           content = replcestr(content, locationIndex, title, ele)
         }
@@ -222,15 +241,15 @@ export default {
       if (src.length === 0 || src === undefined) { return }
       let timeinterval = new Date().getTime()
       let msgId = timeinterval.toString()
-      let jsonstr = {'action': 'post_image', 'mid': msgId, 'data': {'content': src, 'target': this.chat_ids, 'target_type': 'user', 'type': 'binary', 'encode': 'base64', 'file_ext': 'jpg'}}.toString()
+      let jsonstr = {'action': 'post_image', 'mid': msgId, 'data': {'content': src, 'target': this.chatObj.id, 'target_type': 'user', 'type': 'binary', 'encode': 'base64', 'file_ext': 'jpg'}}.toString()
       this._sendMessage(jsonstr)
       this.unreachQueue[msgId] = jsonstr
-      let imgitem = {'msg_id': msgId, 'from_uid': this.user_id, 'msg_type': '2', 'src': src}
+      let imgitem = {'msg_id': msgId, 'from_uid': this.loginInfo.uid, 'msg_type': '2', 'src': src}
       let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
       imgitem['showtime'] = minus > 60000
-      imgitem['from_head_img'] = this.user_head_img
-      imgitem['to_uid'] = this.chat_ids.toString()
-      imgitem['to_head_img'] = this.chat_head_img
+      imgitem['from_head_img'] = this.loginInfo.header
+      imgitem['to_uid'] = this.chatObj.id.toString()
+      imgitem['to_head_img'] = this.chatObj.head_img
       imgitem['status'] = 2
       imgitem['ctime'] = timeinterval
       this._insertChatItem(imgitem)
@@ -326,7 +345,7 @@ export default {
 @import '../../css/mixin.styl'
 @import '../../css/chat.styl'
 // 聊天内容
-.chat-warraper
+.chat-warapper
   .chat-header
     text-align center
     height 76px

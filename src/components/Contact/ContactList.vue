@@ -1,33 +1,27 @@
 <!-- 联系人列表组件 -->
 <template>
-  <div class="contact-warapper" ref="warapper">
+  <div v-if="loginInfo" class="contact-warapper" ref="warapper">
       <div class="header" ref="top">
         <div class="header-user">
-          <img src="../../assets/images/user-icon.png">
-          <span>孙雄连</span>
+          <img :src="loginInfo.header">
+          <span>{{loginInfo.nick}}</span>
         </div>
-        <div class="header-search" v-if="user === 0">
+        <div v-if="loginInfo.usertype === 0" class="header-search">
           <span></span>
           <input type="search" placeholder="输入用户昵称">
         </div>
       </div>
-      <div class="contact-list" ref="contactlist">
-        <div class="contact-group-item" v-for = "item in contactlist" :key="item.name">
-          <img v-if="item.show" src="../../assets/images/arrow.png" style="transform:rotate(90deg)">
+      <div class="contact-list" ref="contacterlist">
+        <div v-if="contactlist !== null" v-for = "group in contactlist" :key="group.name" class="contact-group-item">
+          <img v-if="group.show" src="../../assets/images/arrow.png" style="transform:rotate(90deg)">
           <img v-else src="../../assets/images/arrow.png">
-          <span class="groupname" @click="clickGroup(item)">{{item.name}}</span>
-          <ul v-if="item.show">
-            <li v-for = "subitem in item.data" :key="subitem.id" class="contact-detail-item" @click="clickSubitem(subitem)">
-              <img v-lazy="subitem.head_img">
-              <span class="nick">{{subitem.nick}}</span>
-              <span v-if="subitem.select" class="lastmessage selectitem">[2条]广告费发给我</span>
-              <span v-else class="lastmessage">[2条]广告费发给我</span>
-              <span class="lastmessagetime">11:30</span>
-            </li>
+          <a href="#" class="groupname" @click="_clickGroupItem(group)">{{group.name}}</a>
+          <ul v-if="group.show">
+            <ContactCell v-for = "subitem in group.data" :key="subitem.id" :item="subitem" :clickContactCell="_clickContactCell"></ContactCell>
           </ul>
         </div>
       </div>
-      <div v-if="user === 0" class="group-send">
+      <div v-if="loginInfo.usertype === 0" class="group-send">
         <a href="#">群发</a>
         <a href="#">编辑</a>
       </div>
@@ -36,39 +30,107 @@
 
 <script>
 import { jsonp } from '../../common/fetch'
-
+import ContactCell from './ContactCell/ContacterCell'
 export default {
+  components: {
+    ContactCell
+  },
+  props: {
+    loginInfo: {
+      type: Object,
+      default: function () {
+        return [ ]
+      }
+    }
+  },
   data () {
     return {
-      'user': 0, // 0表示是老师登录 1表示是普通用户登录
-      'contactlist': [ ],
-      'test': 'http://www.weicaixun.com/upload/imglib/thumb/210_140/finance_201701101039045852.jpg'
+      'contactlist': null,
+      'selectItem': null, // 选择的聊天对象
+      'tempData': null // 临时数据存储用来数据转换
+    }
+  },
+  watch: {
+    selecitem: {
+
     }
   },
   mounted () {
-    jsonp('/priapi1/get_puber_contacters').then((res) => {
-      for (let index in res) {
-        let item = res[index]
-        item.show = false
-        for (const subindex in item.data) {
-          item.data[subindex].select = false
-        }
+    // 获取到最近聊天记录数据
+    jsonp('/priapi1/get_chat_history').then((res) => {
+      if (this.tempData === null) { // 分组数据还没有加载出来
+        this.tempData = res
+      } else { // 分组数据加载完成
+        this.tempData.map((groupinfo) => {
+          if (groupinfo.data) {
+            groupinfo.data.map((subitem) => {
+              let messageitem = this._filterMessage(subitem.nick, res)
+              subitem.lastMessage = messageitem.msg
+              subitem.lastTime = messageitem.ctime
+            })
+          }
+        })
+        this.contactlist = this.tempData
       }
-      this.contactlist = res
     }).catch((err) => {
       console.log(err)
     })
+    // 获取到分组数据
+    jsonp('/priapi1/get_puber_contacters').then((res) => {
+      // 1.对分组数据进行初始化处理
+      res.map((item) => {
+        item.show = false
+        if (item.data) {
+          item.data.map((subitem) => {
+            subitem.select = false
+            subitem.lastMessage = ' '
+            subitem.lastTime = ' '
+          })
+        }
+      })
+      if (this.tempData === null) { // 历史数据还没有加载完成
+        this.tempData = res
+      } else { // 历史数据加载完成 将聊天数据注入到最终的数据中
+        res.map((groupinfo) => {
+          if (groupinfo.data) {
+            groupinfo.data.map((subitem) => {
+              let messageitem = this._filterMessage(subitem.nick, this.tempData)
+              subitem.lastMessage = messageitem.msg
+              subitem.lastTime = messageitem.ctime
+            })
+          }
+        })
+        this.contactlist = res
+      }
+    }).catch((err) => {
+      console.log(err)
+    })
+    if (this.$refs.top === undefined) { return }
     var topheight = this.$refs.top.offsetHeight
     var contactlistheight = this.$refs.warapper.offsetHeight - topheight
-    this.$refs.contactlist.style.height = contactlistheight + 'px'
+    this.$refs.contacterlist.style.height = contactlistheight + 'px'
   },
   methods: {
-    clickGroup: (item) => {
+    _clickGroupItem (item) {
       item.show = !item.show
     },
-    clickSubitem: (item) => {
+    _filterMessage (nick, messagelist) {
+      let items = messagelist.filter((message) => {
+        return message.nick === nick
+      })
+      if (items === null || items === undefined || items.length <= 0) {
+        return null
+      }
+      return items[0]
+    },
+    _clickContactCell (item) {
+      if (item === undefined || item === null || this.selectItem === item) { return }
+      if (this.selectItem) {
+        this.selectItem.select = false
+      }
       item.select = !item.select
-      console.log(item)
+      this.selectItem = item
+      typeof this.$attrs.selectChat === 'function' && this.$attrs.selectChat(item)
     }
   }
 }
@@ -139,39 +201,10 @@ export default {
         height 60px
         line-height 60px
         font-size 14px
-        margin-left 52px
-      .contact-detail-item
-        border-top 1px solid #333
-        height 60px
-        width 100%
-        position relative
-        color #999
-        img
-          position absolute
-          left 20px
-          top 10px
-          width 40px
-          height 40px
-          border-radius 4px
-        .nick
-          position absolute
-          top 12px
-          left 70px
-          font-size 12px
-          color white
-        .lastmessage
-          position absolute
-          left 70px
-          bottom 12px
-          font-size 12px
-        .lastmessagetime
-          font-size 12px
-          float right
-          margin-right 16px
-          margin-top 12px
-          color #999999
-        .selectitem
-          color white
+        padding-left 52px
+        text-decoration none
+        box-sizing border-box
+        color white
   .group-send
     height 55px
     position absolute

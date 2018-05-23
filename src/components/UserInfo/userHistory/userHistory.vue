@@ -7,8 +7,8 @@
       </div>
       <div class="user-history-content">
         <ul style="overflow:auto;height:100%"><li v-for="item in currentPageHistory" :key="item.msg_id" style="font-size: 14px; line-height: 20px;padding-bottom: 12px">
-          <p v-if="item.from_nick === loginnick" class="history-header" style="color: #f29930; padding: 0 18px;">{{item.from_nick}}    {{item.ctime.replace(/-/g,'/')}}</p>
-          <p v-else style="color: #3091f2; padding: 0 18px;">{{item.from_nick}}      {{item.ctime }}</p>
+          <p v-if="item.from_nick === loginInfo.nick" class="history-header" style="color: #f29930; padding: 0 18px;">{{item.from_nick}}  {{item.ctime.replace(/-/g,'/')}}</p>
+          <p v-else style="color: #3091f2; padding: 0 18px;">{{item.from_nick}}      {{item.ctime}}</p>
           <p v-if="item.msg_type === '1'" style="color: #333; padding: 8px 18px 0 18px;">{{item.content}}</p>
           <a v-else-if="item.msg_type === '3'" :style='initinalVoiceStyle(item)' @click="_palyHistoryVoice(item)" class="history-voice-wraaper" href="#"><span>{{JSON.parse(item.ext_info).voice_len}}"</span><img :src="item.play ? require('../../../assets/images/play.gif') : require('../../../assets/images/historyvoice.png')"></a>
           <a v-else class="history-img-wraaper" href="#">
@@ -28,9 +28,28 @@
 import { jsonp, baseUrl } from '../../../common/fetch'
 
 export default {
+  props: {
+    chatObj: { // 当前聊天对象的用户信息
+      type: [Object],
+      default: function () {
+        return null
+      }
+    },
+    loginInfo: { // 当前登录用户信息
+      type: [Object],
+      default: function () {
+        return {'nick': 'Swifter'}
+      }
+    }
+  },
+  watch: {
+    chatObj: function () {
+      // 2.重新加载聊天历史数据
+      this._loadFirstPageHistory()
+    }
+  },
   data () {
     return {
-      'loginnick': this.$attrs.usernick,
       'currentPageHistory': [ ],
       'allHistory': {},
       'page': 1,
@@ -41,15 +60,24 @@ export default {
   },
   mounted () {
     this.baseUrl = baseUrl
-    jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': '5552'}).then((res) => {
-      for (let key in res) {
-        res[key].play = false
-      }
-      this.currentPageHistory = res
-      this.allHistory[this.page] = res
-    })
+    this._loadFirstPageHistory()
   },
   methods: {
+    _loadFirstPageHistory () {
+      this.lastPageCantouch = false
+      this.allHistory = [ ]
+      this.currentPageHistory = null
+      this.page = 1
+      jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': this.chatObj.id}).then((res) => {
+        for (let key in res) {
+          res[key].play = false
+        }
+        this.currentPageHistory = res
+        this.allHistory[this.page] = res
+      }).catch((err) => {
+        console.log(err)
+      })
+    },
     _clickNextPage () {
       if (this.allHistory[this.page + 1] !== undefined) {
         this.page += 1
@@ -58,7 +86,12 @@ export default {
         this._stopCurrentPlayVoice()
         return 0
       }
-      jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': '5552', 'msg_id': this.currentPageHistory[0].msg_id}).then((res) => {
+      jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': this.chatObj.id, 'msg_id': this.currentPageHistory[0].msg_id}).then((res) => {
+        console.log('res', res)
+        if (!res) {
+          alert('没有更多的聊天记录')
+          return
+        }
         this._stopCurrentPlayVoice()
         for (let key in res) {
           res[key].play = false
@@ -67,6 +100,8 @@ export default {
         this.page += 1
         this.allHistory[this.page] = res
         this.lastPageCantouch = true
+      }).catch((err) => {
+        console.log(err)
       })
     },
     _clikcLastPage () {

@@ -1,21 +1,33 @@
 <!-- 用户信息组件 -->
 <template>
   <div class="userinfo-warapper">
-    <UserHistory :usernick="this.loginnick"></UserHistory>
+    <UserHistory :chatObj="chatObj" :loginInfo="loginInfo"></UserHistory>
   </div>
 </template>
 
 <script>
 import UserHistory from './userHistory/userHistory'
 export default {
-  components: {
-    UserHistory
+  props: {
+    chatObj: { // 当前聊天对象的用户信息
+      type: [Object],
+      default: function () {
+        return null
+      }
+    },
+    loginInfo: {
+      type: Object,
+      default: function () {
+        return null
+      }
+    }
   },
   data () {
     return {
-      'isuser': true,
-      'loginnick': 'Swifter'
     }
+  },
+  components: {
+    UserHistory
   }
 }
 </script>

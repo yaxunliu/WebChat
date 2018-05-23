@@ -3,7 +3,7 @@
   <li v-if="item === null"></li>
   <li v-else-if="item.receiver" class="chat-receive-voice-warapper">
     <p v-if="item.showtime" class="chat-time">{{item.ctime}}</p>
-    <img class="chat-receive-header" :src="baseUrl + item.from_head_img">
+    <img class="chat-receive-header" :src="_transformImgSrc(item.from_head_img)">
     <div class="chat-receive-voice" :style="_initinalVoiceStyle(item)">
       <a href="#"><img src="../../../assets/images/receive_voice.png"></a>
     </div>
@@ -11,7 +11,7 @@
   </li>
   <li v-else class="chat-send-voice-warapper">
     <p v-if="item.showtime" class="chat-time">{{item.ctime}}</p>
-    <img class="chat-send-header" :src="baseUrl + item.from_head_img">
+    <img class="chat-send-header" :src="_transformImgSrc(item.from_head_img)">
     <div class="chat-send-voice" :style="_initinalVoiceStyle(item)">
       <a href="#"><img src="../../../assets/images/send_voice.png"></a>
     </div>
@@ -37,6 +37,11 @@ export default {
     _initinalVoiceStyle: (item) => {
       let sec = parseInt(JSON.parse(item.ext_info).voice_len)
       return {width: (sec / 2 * 10) + 60 + 'px'}
+    },
+    _transformImgSrc (src) {
+      console.log(src)
+      let reg = /^http/g
+      return reg.test(src) ? src : baseUrl + src
     }
   }
 }

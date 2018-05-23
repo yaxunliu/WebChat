@@ -3,7 +3,7 @@
   <div v-if="item === null"></div>
   <div v-else-if="item.receiver" class="chat-receive-text-warapper">
     <p v-if="item.showtime" class="chat-time">{{_transformTime(item.ctime)}}</p>
-    <img class="chat-receive-header" :src="baseUrl + item.from_head_img">
+    <img class="chat-receive-header" :src="_transformImgSrc(item.from_head_img)">
     <div class="chat-receive-text" v-html="item.innerHTML"></div>
   </div>
   <div v-else class="chat-send-text-warapper">
@@ -13,14 +13,15 @@
       <img v-else-if="item.status === 1" src="../../../assets/images/loading.gif" class="send-loading">
       <a v-else href="#" @click="_resendmessage(item)"><img class="send-loading" src="../../../assets/images/error.png"></a>
       <div class="chat-send-text" v-html="item.innerHTML"></div>
-      <img class="chat-header" :src="baseUrl + item.from_head_img">
+      <img class="chat-header" :src="_transformImgSrc(item.from_head_img)">
     </div>
   </div>
 </template>
 
 <script>
-import { baseUrl } from '../../../common/fetch.js'
 import { formatMsgTime } from './../../../common/timeformat.js'
+import { baseUrl } from '../../../common/fetch.js'
+
 export default {
   data () {
     return {
@@ -31,15 +32,17 @@ export default {
   },
   mounted () {
     this.resendfn = this.$attrs.resendtext
-    this.baseUrl = baseUrl
     this.item = this.$attrs.item
   },
   methods: {
+    _transformImgSrc (src) {
+      let reg = /^http/g
+      return reg.test(src) ? src : baseUrl + src
+    },
     _transformTime (ctime) {
       return formatMsgTime(ctime)
     },
     _resendmessage: function (item) {
-      console.log('begin')
       if (this.resendfn !== undefined && typeof this.resendfn === 'function') {
         item.status = 1
         this.resendfn(item.msg_id)
@@ -65,7 +68,7 @@ export default {
     float left
     margin-top 20px
     margin-left 10px
-    max-width 506px
+    max-width 406px
     min-width 20px
     word-wrap break-word
     overflow auto
