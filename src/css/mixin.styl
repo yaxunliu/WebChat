@@ -25,3 +25,14 @@ rightarrowbubble(left,top,width,bgcolor)
     font-size 0
     border width solid bgcolor
     border-color rgba(1,1,1,0) rgba(1,1,1,0) rgba(1,1,1,0) bgcolor
+bottomarrowbubble(bottom,left,width,bgcolor)
+  &::after
+    position absolute
+    bottom bottom
+    left left
+    content ''
+    width 0
+    height 0
+    font-size 0
+    border width solid bgcolor
+    border-color bgcolor rgba(1,1,1,0) rgba(1,1,1,0) rgba(1,1,1,0)

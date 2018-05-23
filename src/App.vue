@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <ContactList id="contactlist"></ContactList>
-    <Chat id="chat"></Chat>
+    <Chat id="chat" :sendChatData="_sendMessage"></Chat>
     <Userinfo id="userinfo"></Userinfo>
   </div>
 </template>
@@ -17,6 +17,11 @@ export default {
     ContactList,
     Chat,
     Userinfo
+  },
+  methods: {
+    _sendMessage: (jsonstr) => {
+      console.log('send json', jsonstr)
+    }
   }
 }
 </script>

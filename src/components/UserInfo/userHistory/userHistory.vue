@@ -8,7 +8,7 @@
       <div class="user-history-content">
         <ul style="overflow:auto;height:100%"><li v-for="item in currentPageHistory" :key="item.msg_id" style="font-size: 14px; line-height: 20px;padding-bottom: 12px">
           <p v-if="item.from_nick === loginnick" class="history-header" style="color: #f29930; padding: 0 18px;">{{item.from_nick}}    {{item.ctime.replace(/-/g,'/')}}</p>
-          <p v-else style="color: #3091f2; padding: 0 18px;">{{item.from_nick}}      {{item.ctime.replace(/-/g,'/')}}</p>
+          <p v-else style="color: #3091f2; padding: 0 18px;">{{item.from_nick}}      {{item.ctime }}</p>
           <p v-if="item.msg_type === '1'" style="color: #333; padding: 8px 18px 0 18px;">{{item.content}}</p>
           <a v-else-if="item.msg_type === '3'" :style='initinalVoiceStyle(item)' @click="_palyHistoryVoice(item)" class="history-voice-wraaper" href="#"><span>{{JSON.parse(item.ext_info).voice_len}}"</span><img :src="item.play ? require('../../../assets/images/play.gif') : require('../../../assets/images/historyvoice.png')"></a>
           <a v-else class="history-img-wraaper" href="#">
@@ -40,7 +40,6 @@ export default {
     }
   },
   mounted () {
-    console.log('baseUrl', baseUrl)
     this.baseUrl = baseUrl
     jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': '5552'}).then((res) => {
       for (let key in res) {
@@ -48,8 +47,6 @@ export default {
       }
       this.currentPageHistory = res
       this.allHistory[this.page] = res
-    }).catch((err) => {
-      console.log('other error', err)
     })
   },
   methods: {
@@ -70,8 +67,6 @@ export default {
         this.page += 1
         this.allHistory[this.page] = res
         this.lastPageCantouch = true
-      }).catch((err) => {
-        console.log('err', err)
       })
     },
     _clikcLastPage () {
@@ -99,14 +94,12 @@ export default {
     },
     _begainPlayCurrentVoice () {
       if (this.currentPlayitem === null) {
-        console.log('语音资源为null', this.currentPlayitem)
         return
       }
       let voiceurl = this.baseUrl + this.currentPlayitem.mp3_url
       var audio = this.$refs.audio
       audio.src = voiceurl
       audio.play().then(() => {
-        console.log('huidiao')
       }).catch(() => {
         alert('您的浏览器无法播放语音')
         this._stopCurrentPlayVoice()

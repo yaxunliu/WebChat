@@ -60,9 +60,7 @@ export default {
     })
     var topheight = this.$refs.top.offsetHeight
     var contactlistheight = this.$refs.warapper.offsetHeight - topheight
-    console.log('contactlistheight', contactlistheight)
     this.$refs.contactlist.style.height = contactlistheight + 'px'
-    console.log('offsetHeight', this.$refs.contactlist.style)
   },
   methods: {
     clickGroup: (item) => {
