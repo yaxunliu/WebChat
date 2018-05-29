@@ -21,6 +21,7 @@ div
   justify-content center
   align-items center
   color #b6b6b6
+  background-color #fff
   #placeimage
     margin-bottom 40px
 </style>

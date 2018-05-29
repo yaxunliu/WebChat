@@ -2,25 +2,26 @@
 <template>
   <li v-if="item === null"></li>
   <li v-else-if="item.receiver" class="chat-receive-voice-warapper">
-    <p v-if="item.showtime" class="chat-time">{{item.ctime}}</p>
+    <p v-if="item.showtime" class="chat-time">{{_transformTime(item.ctime)}}</p>
     <img class="chat-receive-header" :src="_transformImgSrc(item.from_head_img)">
     <div class="chat-receive-voice" :style="_initinalVoiceStyle(item)">
-      <a href="#"><img src="../../../assets/images/receive_voice.png"></a>
+      <a href="#" @click="_playVoice(item)"><img :src="item.play ? require('../../../assets/images/receiveVoicePlay.gif') : require('../../../assets/images/receive_voice.png')"></a>
     </div>
-    <span>{{JSON.parse(item.ext_info).voice_len}}"</span>
+    <span>{{item.voicelen}}"</span>
   </li>
   <li v-else class="chat-send-voice-warapper">
-    <p v-if="item.showtime" class="chat-time">{{item.ctime}}</p>
+    <p v-if="item.showtime" class="chat-time">{{_transformTime(item.ctime)}}</p>
     <img class="chat-send-header" :src="_transformImgSrc(item.from_head_img)">
     <div class="chat-send-voice" :style="_initinalVoiceStyle(item)">
-      <a href="#"><img src="../../../assets/images/send_voice.png"></a>
+      <a href="#" @click="_playVoice(item)"><img :src="item.play ? require('../../../assets/images/sendVociePlay.gif') : require('../../../assets/images/send_voice.png')"></a>
     </div>
-    <span>{{JSON.parse(item.ext_info).voice_len}}"</span>
+    <span>{{item.voicelen}}"</span>
   </li>
 </template>
 
 <script>
 import { baseUrl } from '../../../common/fetch.js'
+import { currentTime } from './../../../common/category.js'
 
 export default {
   data () {
@@ -35,13 +36,23 @@ export default {
   },
   methods: {
     _initinalVoiceStyle: (item) => {
-      let sec = parseInt(JSON.parse(item.ext_info).voice_len)
-      return {width: (sec / 2 * 10) + 60 + 'px'}
+      let sec = item.voicelen
+      let width = (sec / 2 * 10) + 60
+      if (width > 400) {
+        width = 400
+      }
+      return {width: width + 'px'}
     },
     _transformImgSrc (src) {
-      console.log(src)
       let reg = /^http/g
       return reg.test(src) ? src : baseUrl + src
+    },
+    _transformTime (ctime) {
+      return currentTime(false, ctime)
+    },
+    _playVoice (item) {
+      item.play = !item.play
+      typeof this.$attrs.playVoice === 'function' && this.$attrs.playVoice(item)
     }
   }
 }

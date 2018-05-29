@@ -4,7 +4,7 @@ import originJSONP from 'jsonp'
 // 30be7b6182f093964a403fd365a362d2 用户 线上
 export const usergroups = '/priapi1/get_puber_contacters'
 export const baseUrl = 'http://www.weicaixun.com'
-let commonParams = {'token': 'e8e1433b4cd16a78ec66e93ca77bd527', 'myclient': 'iphone', 'myversion': '4.9'}
+let commonParams = {'token': '8d72dad621622623c6327955d24e60b8', 'myclient': 'iphone', 'myversion': '4.9'}
 
 export function get (url, params) {
   var requestUrl = baseUrl + url

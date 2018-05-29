@@ -2,9 +2,10 @@
 <template>
   <li v-if="contacterinfo" :class="_exchangeSelectCls()" @click="_clickContactCell()">
     <img :src="contacterinfo.head_img">
+    <span  v-if="contacterinfo.newtip && !contacterinfo.select" id="tip"></span>
     <span class="nick">{{contacterinfo.nick}}</span>
     <span class="lastmessage">{{contacterinfo.lastMessage}}</span>
-    <span class="lastmessagetime">{{contacterinfo.lastTime.substring(5, contacterinfo.lastTime.length - 8)}}</span>
+    <span class="lastmessagetime">{{contacterinfo.lastTime}}</span>
   </li>
 </template>
 
@@ -36,6 +37,14 @@ export default {
   width 100%
   position relative
   color #999
+  #tip
+    background-color red
+    width 6px
+    height 6px
+    border-radius 3px
+    position absolute
+    left 57px
+    top 7px
   img
     position absolute
     left 20px

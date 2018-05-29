@@ -19,7 +19,7 @@
 </template>
 
 <script>
-import { formatMsgTime } from './../../../common/timeformat.js'
+import { currentTime } from './../../../common/category.js'
 import { baseUrl } from '../../../common/fetch.js'
 
 export default {
@@ -40,7 +40,7 @@ export default {
       return reg.test(src) ? src : baseUrl + src
     },
     _transformTime (ctime) {
-      return formatMsgTime(ctime)
+      return currentTime(false, ctime)
     },
     _resendmessage: function (item) {
       if (this.resendfn !== undefined && typeof this.resendfn === 'function') {

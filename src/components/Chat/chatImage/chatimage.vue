@@ -5,7 +5,7 @@
     <p v-if="item.showtime" class="chat-time">{{_transformTime(item.ctime)}}</p>
     <img class="chat-receive-header" :src="_transformImgSrc(item.from_head_img)">
     <div class="chat-receive-image">
-      <a href="#"><img class="send-image" :src="_bindSrc(item)"></a>
+      <a href="#" @click="_showReceiveImage(item)"><img class="send-image" :src="_bindSrc(item)"></a>
     </div>
   </div>
   <div v-else class="chat-send-image-warapper">
@@ -14,7 +14,7 @@
       <a v-if="item.status === 0"></a>
       <img v-else-if="item.status === 1" src="../../../assets/images/loading.gif" class="send-loading">
       <a v-else href="#" @click="_resendmessage(item)"><img class="send-loading" src="../../../assets/images/error.png"></a>
-      <a><img class="send-image" :src="_bindSrc(item)"></a>
+      <a href="#" @click="_showSendImage(item)"><img class="send-image" :src="_bindSrc(item)"></a>
       <img class="chat-send-header" :src="_transformImgSrc(item.from_head_img)">
     </div>
   </div>
@@ -22,7 +22,7 @@
 
 <script>
 import { baseUrl } from '../../../common/fetch.js'
-import { formatMsgTime } from './../../../common/timeformat.js'
+import { currentTime } from './../../../common/category.js'
 
 export default {
   data () {
@@ -38,12 +38,20 @@ export default {
     this.item = this.$attrs.item
   },
   methods: {
+    _showReceiveImage (item) {
+      window.open(baseUrl + item.url)
+    },
+    _showSendImage (item) {
+      if (item.url !== undefined) {
+        window.open(baseUrl + item.url)
+      }
+    },
     _transformImgSrc (src) {
       let reg = /^http/g
       return reg.test(src) ? src : baseUrl + src
     },
     _transformTime (ctime) {
-      return formatMsgTime(ctime)
+      return currentTime(false, ctime)
     },
     _bindSrc: (item) => {
       if (item.src === undefined) {

@@ -3,13 +3,14 @@
   <div class="chat-warapper">
     <div class="chat-header">
       {{chatObj.nick}}
+      <audio ref="audio"></audio>
     </div>
     <div class="chat-content">
       <ul ref="chatscroll">
         <li v-for="item in chathistory" :key="item.msg_id" ref="chatitem">
         <Chatimage v-if="item.msg_type === '2'" :item="item" :resendimage="_resendmessage"></Chatimage>
         <Chattext v-if="item.msg_type === '1'" :item="item" :resendtext="_resendmessage"></Chattext>
-        <Chatvoice v-if="item.msg_type === '3'" :item="item"></Chatvoice>
+        <Chatvoice v-if="item.msg_type === '3'" :item="item" :playVoice='_playvoice'></Chatvoice>
         </li>
       </ul>
     </div>
@@ -21,7 +22,7 @@
         <input type="file" accept="image/gif, image/jpeg, image/png" ref="imgpicker" @change='_onInputchange'>
       </div>
       <div class="chat-input-text">
-        <div id="editarea" contenteditable=true @click="_begainEdit" ref="innercontent">
+        <div id="editarea" contenteditable=true @click="_begainEdit" @keyup.enter="_keydown" ref="innercontent">
         </div>
       </div>
       <div class="chat-send-button">
@@ -30,9 +31,8 @@
     </div>
   </div>
 </template>
-
 <script>
-import { jsonp } from '../../common/fetch.js'
+import { baseUrl, jsonp } from '../../common/fetch.js'
 import Chatvoice from './chatVoice/chatvoice.vue'
 import Chattext from './ChatText/Chattext.vue'
 import Chatimage from './ChatImage/Chatimage.vue'
@@ -40,6 +40,15 @@ import Chatemojilist from './chatEmoji/chatEmojiList'
 import emojiJson from '../../assets/images/emoji.json'
 import { replcestr } from '../../common/category.js'
 export default {
+  data () {
+    return {
+      'chathistory': [ ], // 聊天历史数据
+      'unreachQueue': {}, // 正在发送中的消息队列
+      'unreachWebitemQueue': {}, // 正在发送的消息item显示在web上的
+      'showemojilist': false,
+      'emojipath': '/static/emjoy/'
+    }
+  },
   props: {
     chatObj: { // 当前聊天对象的用户信息
       type: [Object],
@@ -52,32 +61,49 @@ export default {
       default: function () {
         return [ ]
       }
+    },
+    reachedmid: { // 对方已经收到的消息mid
+      type: [ Number ],
+      default: function () {
+        return null
+      }
+    },
+    newMessage: { // 收到新的消息
+      type: [Object]
     }
-  },
-  data () {
-    return {
-      'user_id': '109486', // 当前用户的id
-      'chathistory': [ ], // 聊天历史数据
-      'unreachQueue': {}, // 正在发送中的消息队列
-      'showemojilist': false,
-      'emojipath': '/static/emjoy/'
-    }
-  },
-  components: {
-    Chatvoice,
-    Chattext,
-    Chatimage,
-    Chatemojilist
   },
   watch: {
     chatObj: function () {
-      // 1.存储当前聊天的信息
-      // 2.加载聊天历史数据
+      // 加载聊天历史数据
       this._loadHistoryData()
+    },
+    reachedmid: function () {
+      let obj = this.unreachWebitemQueue[this.reachedmid]
+      obj.status = 0
+      delete this.unreachQueue[this.reachedmid]
+      delete this.unreachWebitemQueue[this.reachedmid]
+    },
+    newMessage: function () {
+      if (this.newMessage.from_id !== this.chatObj.id) { return }
+      let minus = this.newMessage['ctime'] - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
+      this.newMessage['showtime'] = minus > 60000
+      this.newMessage['from_head_img'] = this.chatObj.head_img
+      this.newMessage['to_head_img'] = this.loginInfo.header
+      this.newMessage['receiver'] = true
+      if (this.newMessage['msg_type'] === '1') { // 文字消息
+        let gifSrc = this._filterGifEmojiSrc(this.newMessage.content)
+        if (gifSrc !== null) {
+          this.newMessage['msg_type'] = '2'
+          this.newMessage['src'] = gifSrc
+        } else {
+          this.newMessage['msg_type'] = '1'
+          this.newMessage['innerHTML'] = this._filterText(this.newMessage['content'])
+        }
+      } else if (this.newMessage['msg_type'] === '2') { // 图片消息
+        // 图片消息暂时不需要处理
+      }
+      this._insertChatItem(this.newMessage)
     }
-  },
-  mounted () {
-    this._loadHistoryData()
   },
   updated () {
     var height = this.$refs.chatitem.reduce((pre, cur) => {
@@ -91,7 +117,20 @@ export default {
     })
     this.$refs.chatscroll.scrollTop = height
   },
+  mounted () {
+    this._loadHistoryData()
+  },
   methods: {
+    _keydown (item) {
+      this._sendText()
+    },
+    _playvoice (item) { // 播放或者暂停
+      this._stopCurrentPlayVoice()
+      if (item.play) { // 播放
+        this.currentPlayitem = item
+        this._begainPlayCurrentVoice()
+      }
+    },
     _loadHistoryData () {
       jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': this.chatObj.id}).then((res) => {
         res.map((value, index, arr) => {
@@ -108,8 +147,19 @@ export default {
     },
     _filterReceiveText (lastitem, item) {
       // 1.初始化状态值
-      if (item['msg_type'] === '3') {
+      if (item['msg_type'] === '3') { // 对语音进行处理
         item.play = false
+        item.voicelen = JSON.parse(item.ext_info).voice_len
+      } else if (item['msg_type'] === '1') {
+        // 1.有可能是gif图片
+        let gifSrc = this._filterGifEmojiSrc(item.content)
+        if (gifSrc !== null) {
+          item['msg_type'] = '2'
+          item['src'] = gifSrc
+        } else {
+          // 过滤表情图片
+          item.innerHTML = this._filterText(item.content)
+        }
       }
       item.status = 0
       var interval = new Date(item.ctime).getTime()
@@ -118,8 +168,6 @@ export default {
       item.showtime = lastitem === 0 ? true : this._isShowTime(lastitem, item)
       // 3.当前用户是否是消息接收者
       item.receiver = item.to_uid === this.loginInfo.uid
-      // 4.过滤表情图片
-      item.innerHTML = this._filterText(item.content)
     },
     /* 编辑区事件 */
     // 选择表情
@@ -127,11 +175,13 @@ export default {
       let emojisrc = this.emojipath + emojiitem.img
       this.showemojilist = false
       if (isgif) {
-        this._sendImage(emojisrc)
+        // 1.发送文本消息给服务器
+        let timeinterval = this._sendTextMessageToServer(emojiitem.title)
+        // 2.显示gif图片在web服务器
+        this._insertImageMessageToWeb(timeinterval, emojisrc)
       } else {
         let ele = `${'<img style="display: inline-block;height: 20px; vertical-align: middle"'} src="${emojisrc}" text="${emojiitem.title}">`
         this.$refs.innercontent.innerHTML += ele
-        console.log(this.$refs.innercontent.value)
       }
     },
     // 选择图片
@@ -161,31 +211,52 @@ export default {
     },
     // 发送文本
     _sendText () {
-      let innerHTML = this.$refs.innercontent.innerHTML
+      // 1.过滤文本(这里只是包含文字信息和表情信息)
+      let innerHTML = this._filterSpace(this.$refs.innercontent.innerHTML)
       let innerText = this.$refs.innercontent.textContent
+      innerText = innerText.replace(/^[\s]*/gi, '').replace(/[\s]*$/gi, '')
+      if (innerHTML === '' && innerText.length === 0) {
+        alert('不能发送空白内容')
+        return
+      }
       this.$refs.innercontent.innerHTML = ''
-      if (innerHTML === '') { return 0 }
       let content = this._filterHTML(innerHTML, innerText)
+      // 2.发送到服务器
+      let timeinterval = this._sendTextMessageToServer(content)
+      // 3.显示文本和表情消息到web服务器
+      this._insertMessageItemToweb(timeinterval, content, innerHTML)
+    },
+    _filterSpace (html) {
+      let divReg = /<div>(<br>)*<\/div>/g
+      html = html.replace(divReg, '')
+      let spanReg = /div/g
+      html = html.replace(spanReg, 'span')
+      return html
+    },
+    _sendTextMessageToServer (text) {
       let timeinterval = new Date().getTime()
-      let msgId = timeinterval.toString()
-      let jsonstr = {'action': 'post_text', 'mid': msgId, 'data': {'target': this.chatObj.id, 'target_type': 'user', 'content': content}}.toString()
-      this._sendMessage(jsonstr)
+      let msgId = timeinterval
+      let jsonstr = JSON.stringify({'action': 'post_text', 'mid': msgId, 'data': {'target': this.chatObj.id, 'target_type': 'user', 'content': text}})
       this.unreachQueue[msgId] = jsonstr
-      // 分2种情况,一种是群发,一种是单发
-      let textitem = {'msg_id': msgId, content: content, 'from_uid': this.loginInfo.uid, 'msg_type': '1'}
+      this._sendMessage(jsonstr)
+      return timeinterval
+    },
+    _insertMessageItemToweb (timeinterval, content, innerHTML) {
+      let textitem = {'msg_id': timeinterval, content: content, 'from_id': this.loginInfo.uid, 'msg_type': '1'}
       let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
       textitem['showtime'] = minus > 60000
       textitem['from_head_img'] = this.loginInfo.header
-      textitem['to_uid'] = this.chatObj.id.toString()
+      textitem['to_uid'] = this.chatObj.id
       textitem['to_head_img'] = this.chatObj.head_img
-      textitem['status'] = 2
+      textitem['status'] = 1
       textitem['ctime'] = timeinterval
       textitem['innerHTML'] = innerHTML
-      console.log(innerHTML)
       this._insertChatItem(textitem)
+      this.unreachWebitemQueue[timeinterval] = textitem
     },
     // 将富文本过滤生成文字返回
     _filterHTML (html, text) {
+      // 过滤表情图片
       var imgReg = /<img.*?(?:>|\/>)/gi
       var textReg = /text=['|"]?([^|'|"]*)[|'|"]?/i
       var arr = html.match(imgReg)
@@ -228,6 +299,7 @@ export default {
       return content
     },
     _filterEmojiSrc (title) {
+      // 1.过滤普通表情
       let emojis = emojiJson[0].list
       let results = emojis.filter((emoji) => {
         return emoji.title === title
@@ -236,27 +308,54 @@ export default {
         return '/static/emjoy/' + results[0].img
       }
     },
+    _filterGifEmojiSrc (title) {
+      // 过滤gif表情
+      let gifemojis = emojiJson[1].list
+      let gifResult = gifemojis.filter((emoji) => {
+        return emoji.title === title
+      })
+      if (gifResult.length !== 0) {
+        return '/static/emjoy/' + gifResult[0].img
+      }
+      return null
+    },
     // 发送图片
     _sendImage (src) {
       if (src.length === 0 || src === undefined) { return }
+      // 1.将图片消息发送到服务器
+      let timeinterval = this._sendImageMessageToServer(src)
+      // 2.显示图片消息到web
+      this._insertImageMessageToWeb(timeinterval, src)
+    },
+    _sendImageMessageToServer (src) {
+      // /priapi1/im_send_image
       let timeinterval = new Date().getTime()
-      let msgId = timeinterval.toString()
-      let jsonstr = {'action': 'post_image', 'mid': msgId, 'data': {'content': src, 'target': this.chatObj.id, 'target_type': 'user', 'type': 'binary', 'encode': 'base64', 'file_ext': 'jpg'}}.toString()
-      this._sendMessage(jsonstr)
+      let msgId = timeinterval
+      let jsonstr = JSON.stringify({'action': 'post_image', 'mid': msgId, 'data': {'content': src.split(',')[1], 'target': this.chatObj.id, 'target_type': 'user', 'type': 'binary', 'encode': 'base64', 'file_ext': 'png'}})
       this.unreachQueue[msgId] = jsonstr
-      let imgitem = {'msg_id': msgId, 'from_uid': this.loginInfo.uid, 'msg_type': '2', 'src': src}
+      this._sendMessage(jsonstr)
+      return timeinterval
+    },
+    _insertImageMessageToWeb (timeinterval, src) {
+      let imgitem = {'msg_id': timeinterval, 'from_id': this.loginInfo.uid, 'msg_type': '2', 'src': src}
       let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
       imgitem['showtime'] = minus > 60000
       imgitem['from_head_img'] = this.loginInfo.header
-      imgitem['to_uid'] = this.chatObj.id.toString()
+      imgitem['to_uid'] = this.chatObj.id
       imgitem['to_head_img'] = this.chatObj.head_img
-      imgitem['status'] = 2
+      imgitem['status'] = 1
       imgitem['ctime'] = timeinterval
       this._insertChatItem(imgitem)
+      this.unreachWebitemQueue[timeinterval] = imgitem
     },
     // 父组件发送数据
     _sendMessage (jsonstr) {
       this.$attrs.sendChatData && typeof this.$attrs.sendChatData === 'function' && this.$attrs.sendChatData(jsonstr)
+      setTimeout(() => {
+        this.unreachWebitemQueue.length && this.unreachWebitemQueue.map((item) => {
+          item.status = 100
+        })
+      }, 10000)
     },
     // 开始编辑文字
     _begainEdit () {
@@ -278,9 +377,9 @@ export default {
     /* 语音播放相关事件 */
     // 停止当前播放的语音
     _stopCurrentPlayVoice () {
-      if (this.currentPlayitem !== null) {
+      if (this.currentPlayitem) {
         var audio = this.$refs.audio
-        if (!audio.ended) {
+        if (audio.ended !== undefined) {
           audio.pause()
         }
         this.currentPlayitem.play = false
@@ -292,7 +391,12 @@ export default {
       if (this.currentPlayitem === null) {
         return
       }
-      let voiceurl = this.baseUrl + this.currentPlayitem.mp3_url
+      let voiceurl = null
+      if (this.currentPlayitem.mp3_url.indexOf('http') === 0) {
+        voiceurl = this.currentPlayitem.mp3_url
+      } else {
+        voiceurl = baseUrl + this.currentPlayitem.mp3_url
+      }
       var audio = this.$refs.audio
       audio.src = voiceurl
       audio.play().then(() => {
@@ -338,6 +442,12 @@ export default {
         }, 2000)
       }
     }
+  },
+  components: {
+    Chatvoice,
+    Chattext,
+    Chatimage,
+    Chatemojilist
   }
 }
 </script>

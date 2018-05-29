@@ -87,7 +87,6 @@ export default {
         return 0
       }
       jsonp('/sixin/get_liaotian', {'from': 'im3', 'user_id': this.chatObj.id, 'msg_id': this.currentPageHistory[0].msg_id}).then((res) => {
-        console.log('res', res)
         if (!res) {
           alert('没有更多的聊天记录')
           return
