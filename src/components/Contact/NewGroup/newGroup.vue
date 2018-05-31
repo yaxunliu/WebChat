@@ -4,12 +4,12 @@
              "/sixin/del_user?token=<?=$token;?>
 -->
 <template>
-  <div class="group">
-    <div class="group-enter">
+  <div class="group" @click="_clickSpaceArea">
+    <div class="group-enter" @click.stop="_clickInputArea">
       <div class="title">创建分组</div>
       <div class="bottom">
         <input type="text" ref="geoupName" placeholder="请输入要创建分组的名称">
-        <a href="#" @click="_createNewGroup" class="certainButton">确定</a>
+        <a href="#" @click.stop="_createNewGroup" class="certainButton">确定</a>
       </div>
     </div>
   </div>
@@ -20,13 +20,19 @@ import { jsonp } from '../../../common/fetch.js'
 
 export default {
   methods: {
+    _clickInputArea () {
+      console.log('点击了input区域')
+    },
+    _clickSpaceArea () {
+      // 阻止事件冒泡
+      typeof this.$attrs.createGroupSuccess === 'function' && this.$attrs.createGroupSuccess(false)
+    },
     _createNewGroup () {
       let groupName = this.$refs.geoupName.value
       let str = groupName.replace(/\s+/g, '')
       str === '' && alert('请输入新的分组名称!')
       str !== '' && jsonp('/sixin/create_group_action', {'groupname': groupName}).then((res) => {
-        alert('创建分组成功!')
-        typeof this.$attrs.createGroupSuccess === 'function' && this.$attrs.createGroupSuccess()
+        typeof this.$attrs.createGroupSuccess === 'function' && this.$attrs.createGroupSuccess(true)
       }).catch((err) => {
         if (err.err_info) {
           alert(err.err_info)
@@ -38,6 +44,7 @@ export default {
 </script>
 <style lang='stylus' scoped>
 .group
+  z-index 1000
   position fixed
   background-color rgba(#000, 0.5)
   top 0

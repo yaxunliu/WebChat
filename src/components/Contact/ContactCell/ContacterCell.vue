@@ -21,6 +21,7 @@ export default {
   },
   methods: {
     _exchangeSelectCls () {
+      console.log('select status', this.contacterinfo.select)
       return this.contacterinfo.select ? 'contact-cell' + ' ' + 'select-contact-cell' : 'contact-cell'
     },
     _clickContactCell () {
@@ -36,6 +37,7 @@ export default {
   height 60px
   width 100%
   position relative
+  background-color #545454
   color #999
   #tip
     background-color red
@@ -81,7 +83,7 @@ export default {
     color #999999
 .select-contact-cell
   color white
-  background-color #3b3b3b
+  background-color #316dc9
   .lastmessage
     color white
 </style>

@@ -29,11 +29,12 @@
         <a href="#" class="edit" @mouseover="_showEditArea" @mouseout="_hiddenEditArea">编辑</a>
         <ul v-if="showEditArea" class="editlist" @mouseout="_hiddenEditArea">
           <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item" @click="_showCreateGroup(true)">创建分组</a></li>
-          <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item">编辑/删除分组</a></li>
+          <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item" @click="_showEditGroup(true, false)">编辑/删除分组</a></li>
           <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item">移动用户至分组</a></li>
         </ul>
       </div>
       <newGroup v-if="showCreateGroup" :createGroupSuccess="_createGroupSuccess"></newGroup>
+      <editGroup v-if="showEditGroup" :datalist="contactlist" :closeEdit="_showEditGroup"></editGroup>
   </div>
 </template>
 
@@ -42,10 +43,13 @@ import { jsonp } from '../../common/fetch'
 import ContactCell from './ContactCell/ContacterCell'
 import { currentTime } from '../../common/category'
 import newGroup from '../../components/Contact/NewGroup/newGroup'
+import editGroup from '../../components/Contact/EditGroup/editGroup'
+
 export default {
   components: {
     ContactCell,
-    newGroup
+    newGroup,
+    editGroup
   },
   props: {
     loginInfo: {
@@ -70,6 +74,7 @@ export default {
   data () {
     return {
       'showCreateGroup': false, // 是否显示创建分组组件
+      'showEditGroup': false, // 是否显示编辑分组
       'showEditArea': false, // 是否显示编辑区
       'searchResult': [ ],
       'contactlist': null,
@@ -82,7 +87,6 @@ export default {
   },
   watch: {
     dataReady: function () {
-      console.log('数据准备完成', this.contactlist)
       if (this.contactListNewTip) {
         this.dataReady && this._receiveNewMessage([this.contactListNewTip])
       } else {
@@ -121,9 +125,16 @@ export default {
     }
   },
   methods: {
-    _createGroupSuccess () {
-      this._initialData()
+    _createGroupSuccess (success) {
       this._showCreateGroup(false)
+      if (success) { this._initialData() }
+    },
+    _showEditGroup (show, reload) {
+      this.showEditGroup = show
+      if (reload) {
+        console.log('reload')
+        this._initialData()
+      }
     },
     _showCreateGroup (show) {
       this.showCreateGroup = show
@@ -163,8 +174,6 @@ export default {
           item.data.map((subitem) => {
             let index = subitem.nick.indexOf(searchText)
             if (index < 0) { return }
-            console.log('找到相同的下标', typeof this.searchResult.filter)
-            console.log('开始过滤')
             let fles = this.searchResult.filter((result) => {
               return result.id === subitem.id
             })
@@ -178,6 +187,10 @@ export default {
       item.show = !item.show
     },
     _filterMessage (nick, messagelist) {
+      if (messagelist === null) {
+        console.log('messagelist', nick, messagelist)
+        return {}
+      }
       let items = messagelist.filter((message) => {
         if (message.nick === '' || message.nick === undefined || message.nick === null) {
           message.nick = '用户' + message.from_id
@@ -224,7 +237,6 @@ export default {
         } else {
           content = '[语音消息]'
         }
-        console.log('开始搜索分组', this.contactSortGroupList, message.from_id)
         if (this.contactSortGroupList[message.from_id] && this.contactSortGroupList[message.from_id].length > 0) { // 用户在列表内
           let selectList = this.contactSortList[message.from_id].filter((item) => {
             return item.select
@@ -285,6 +297,7 @@ export default {
       })
       // 获取到分组数据
       jsonp('/priapi1/get_puber_contacters').then((res) => {
+        console.log('分组数据', res)
         // 1.对分组数据进行初始化处理
         res.map((item) => {
           item.show = false
@@ -319,8 +332,13 @@ export default {
                   subitem.nick = '用户' + subitem.id
                 }
                 let messageitem = this._filterMessage(subitem.nick, this.tempData)
-                subitem.lastMessage = messageitem.msg
-                subitem.lastTime = currentTime(false, messageitem.ctime)
+                if (messageitem === null) {
+                  subitem.lastMessage = '暂无聊天记录'
+                  subitem.lastTime = '...'
+                } else {
+                  subitem.lastMessage = messageitem.msg
+                  subitem.lastTime = currentTime(false, messageitem.ctime)
+                }
               })
               this.tempData = null
             }
@@ -408,7 +426,7 @@ export default {
     color red
     overflow auto
     .contact-group-item
-      background-color #474647
+      background-color #3d3d3d
       border-bottom 1px solid #333
       position relative
       box-sizing border-box
@@ -418,12 +436,12 @@ export default {
         height 10px
         position absolute
         left 16px
-        top 25px
+        top 15px
       .groupname
         display inline-block
         width 100%
-        height 60px
-        line-height 60px
+        height 40px
+        line-height 40px
         font-size 14px
         padding-left 52px
         text-decoration none
@@ -464,6 +482,7 @@ export default {
       text-decoration none
     .editlist
       background-color white
+      z-index 1000
       border-radius 4px
       position absolute
       height 120px
