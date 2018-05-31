@@ -40,7 +40,6 @@ export default {
     }
   },
   mounted () {
-    console.log('this.$attrs.datalist', this.$attrs)
     this.$attrs.datalist !== undefined && this.reloadDatalist(this.$attrs.datalist)
   },
   directives: {
@@ -84,7 +83,6 @@ export default {
     },
     _bindSelectSrc (item) {
       if (item.id === -1 || item.id === undefined) {
-        console.log('forbiden=> item', item)
         return require('../../../assets/images/forbiden-select.png')
       }
       return item.select ? require('../../../assets/images/checkbox_select.png') : require('../../../assets/images/checkbox_unselect.png')
@@ -123,7 +121,6 @@ export default {
           ids = delUsers[0].id
         } else {
           ids = delUsers.reduce((lastuser, user) => {
-            console.log('lastuser', lastuser, 'user', user)
             return lastuser.id + ',' + user.id
           })
         }
@@ -138,7 +135,6 @@ export default {
             this.selectGroup.data = []
           }
           alert('删除成功')
-          console.log('after this.selectGroup.data', this.selectGroup.data)
         }).catch((err) => {
           console.log('err', err)
           alert('删除错误')
@@ -149,8 +145,6 @@ export default {
       // 完成编辑
       item.canEdit = false
       // 判断当前的编辑完成的标题是否和之前的一样
-      console.log('this.editName', this.editName)
-      console.log('item.name', item, item.name)
       if (this.editName === item.name || !this.editName) {
         alert('组名没有更换')
       } else {
@@ -173,7 +167,6 @@ export default {
       }
       item.select = !item.select
       this.selectGroup = item
-      console.log('this.selectGroup', this.selectGroup)
     },
     _selectUser (user) {
       user.select = !user.select
@@ -184,7 +177,6 @@ export default {
         this.lastfocus.canEdit = false
       }
       if (item.canEdit) { // 点击完成编辑
-        console.log('点击完成编辑')
       }
       item.canEdit = !item.canEdit
       this.lastfocus = item

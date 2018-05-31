@@ -30,11 +30,12 @@
         <ul v-if="showEditArea" class="editlist" @mouseout="_hiddenEditArea">
           <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item" @click="_showCreateGroup(true)">创建分组</a></li>
           <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item" @click="_showEditGroup(true, false)">编辑/删除分组</a></li>
-          <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item">移动用户至分组</a></li>
+          <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item" @click="_showMoveUser(true)">移动用户至分组</a></li>
         </ul>
       </div>
       <newGroup v-if="showCreateGroup" :createGroupSuccess="_createGroupSuccess"></newGroup>
       <editGroup v-if="showEditGroup" :datalist="contactlist" :closeEdit="_showEditGroup"></editGroup>
+      <moveUser v-if="showMoveUsers" :usergroups="contactlist" :closeMoveUser="_showMoveUser"></moveUser>
   </div>
 </template>
 
@@ -44,12 +45,13 @@ import ContactCell from './ContactCell/ContacterCell'
 import { currentTime } from '../../common/category'
 import newGroup from '../../components/Contact/NewGroup/newGroup'
 import editGroup from '../../components/Contact/EditGroup/editGroup'
-
+import moveUser from '../../components/Contact/MoveUser/moveUser'
 export default {
   components: {
     ContactCell,
     newGroup,
-    editGroup
+    editGroup,
+    moveUser
   },
   props: {
     loginInfo: {
@@ -73,6 +75,7 @@ export default {
   },
   data () {
     return {
+      'showMoveUsers': false, // 是否显示移动用户组件
       'showCreateGroup': false, // 是否显示创建分组组件
       'showEditGroup': false, // 是否显示编辑分组
       'showEditArea': false, // 是否显示编辑区
@@ -129,10 +132,13 @@ export default {
       this._showCreateGroup(false)
       if (success) { this._initialData() }
     },
+    _showMoveUser (show) {
+      this.showMoveUsers = show
+      if (!show) { this._initialData() }
+    },
     _showEditGroup (show, reload) {
       this.showEditGroup = show
       if (reload) {
-        console.log('reload')
         this._initialData()
       }
     },
@@ -180,7 +186,6 @@ export default {
             fles.length === 0 ? this.searchResult.push(subitem) : console.log('重复的id', fles)
           })
         })
-        console.log('result', this.searchResult)
       }
     },
     _clickGroupItem (item) {
@@ -188,7 +193,6 @@ export default {
     },
     _filterMessage (nick, messagelist) {
       if (messagelist === null) {
-        console.log('messagelist', nick, messagelist)
         return {}
       }
       let items = messagelist.filter((message) => {
@@ -225,7 +229,6 @@ export default {
       if (!this.dataReady || !messages) {
         return 0
       }
-      console.log('message', messages, '离线message列表', this.contactOfflineMessages)
       typeof messages.map === 'function' && messages.map((message) => {
         // 1.更新消息内容
         let time = currentTime(false, message.timestamp * 1000)
@@ -241,11 +244,8 @@ export default {
           let selectList = this.contactSortList[message.from_id].filter((item) => {
             return item.select
           })
-          console.log('selectList', selectList)
           if (selectList === null || selectList.length === 0) { // 没有聊天被选中 => 提示消息未读
-            console.log('没有聊天被选中')
             this.contactSortGroupList[message.from_id].map((group) => {
-              console.log('分组找到', group)
               group.newMessageTipList[message.from_id] = content
               group.newtips = JSON.stringify(group.newMessageTipList) !== '{}'
             })
@@ -297,7 +297,6 @@ export default {
       })
       // 获取到分组数据
       jsonp('/priapi1/get_puber_contacters').then((res) => {
-        console.log('分组数据', res)
         // 1.对分组数据进行初始化处理
         res.map((item) => {
           item.show = false
