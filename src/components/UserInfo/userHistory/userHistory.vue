@@ -1,11 +1,11 @@
 <!-- 用户端历史记录组件 -->
 <template>
-  <div class="user-history-waraaper">
-      <div class="user-history-header" >
+  <div :class="!hidden ? 'user-history-waraaper' : 'user-history-waraaper user-history-waraaper-hidden'">
+      <div v-show="!hidden" class="user-history-header">
         <p>聊天记录</p>
         <audio ref="audio"></audio>
       </div>
-      <div class="user-history-content">
+      <div :class="hidden ? 'user-history-content user-history-content-hidden' : 'user-history-content'">
         <ul style="overflow:auto;height:100%"><li v-for="item in currentPageHistory" :key="item.msg_id" style="font-size: 14px; line-height: 20px;padding-bottom: 12px">
           <p v-if="item.from_nick === loginInfo.nick" class="history-header" style="color: #f29930; padding: 0 18px;">{{item.from_nick}}  {{item.ctime.replace(/-/g,'/')}}</p>
           <p v-else style="color: #3091f2; padding: 0 18px;">{{item.from_nick}}      {{item.ctime}}</p>
@@ -55,10 +55,13 @@ export default {
       'page': 1,
       'lastPageCantouch': false,
       'baseurl': '',
-      'currentPlayitem': null
+      'currentPlayitem': null,
+      'hidden': false // 隐藏头部
     }
   },
   mounted () {
+    this.hidden = this.$attrs.hiddenHeader === '1'
+    console.log('this.$attrs.hiddenHeader', this.$attrs.hiddenHeader)
     this.baseUrl = baseUrl
     this._loadFirstPageHistory()
   },
@@ -172,6 +175,8 @@ export default {
     width 100%
     text-align center
     line-height 76px
+  .user-history-header-hidden
+    height 0px
   .user-history-content
     position absolute
     left 0px
@@ -215,6 +220,8 @@ export default {
         display block
         width 100%
         border-radius 4px
+  .user-history-content-hidden
+    padding 0
   .user-history-pagecontrol
     position absolute
     bottom 22px
@@ -225,4 +232,6 @@ export default {
       color #3091f2
     span
       margin 0 18px
+.user-history-waraaper-hidden
+  height 665px
 </style>

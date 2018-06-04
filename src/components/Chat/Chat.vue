@@ -27,6 +27,7 @@
       </div>
       <div class="chat-send-button">
         <a href="#" @click="_sendText">发送</a>
+        <div v-show="chatObj.chatModel" class="group-list" v-html="chatObj.remark"></div>
       </div>
     </div>
   </div>
@@ -39,6 +40,7 @@ import Chatimage from './ChatImage/Chatimage.vue'
 import Chatemojilist from './chatEmoji/chatEmojiList'
 import emojiJson from '../../assets/images/emoji.json'
 import { replcestr } from '../../common/category.js'
+
 export default {
   data () {
     return {
@@ -49,33 +51,18 @@ export default {
       'emojipath': '/static/emjoy/'
     }
   },
-  props: {
-    chatObj: { // 当前聊天对象的用户信息
-      type: [Object],
-      default: function () {
-        return null
-      }
-    },
-    loginInfo: {
-      type: Object,
-      default: function () {
-        return [ ]
-      }
-    },
-    reachedmid: { // 对方已经收到的消息mid
-      type: [ Number ],
-      default: function () {
-        return null
-      }
-    },
-    newMessage: { // 收到新的消息
-      type: [Object]
-    }
-  },
+  props: ['chatObj', 'loginInfo', 'reachedmid', 'newMessage'],
   watch: {
-    chatObj: function () {
-      // 加载聊天历史数据
-      this._loadHistoryData()
+    chatObj: {
+      deep: true,
+      handler (val) {
+        if (val.chatModel === 'group') {
+          this.chathistory = []
+        } else {
+          // 加载聊天历史数据
+          this._loadHistoryData()
+        }
+      }
     },
     reachedmid: function () {
       let obj = this.unreachWebitemQueue[this.reachedmid]
@@ -106,6 +93,7 @@ export default {
     }
   },
   updated () {
+    if (!this.$refs.chatitem) { return }
     var height = this.$refs.chatitem.reduce((pre, cur) => {
       var preheight = 0
       if (typeof pre === 'object') {
@@ -118,7 +106,10 @@ export default {
     this.$refs.chatscroll.scrollTop = height
   },
   mounted () {
-    this._loadHistoryData()
+    if (this.chatObj.chatModel === undefined) { // 非群发模式下请求历史数据
+      this._loadHistoryData()
+    } else { // 群发模式
+    }
   },
   methods: {
     _keydown (item) {
@@ -211,6 +202,12 @@ export default {
     },
     // 发送文本
     _sendText () {
+      // 0.判断id
+      console.log('this.chatObj.ids', this.chatObj.id)
+      if (this.chatObj.id.length === 0) {
+        alert('还未选择群发对象')
+        return
+      }
       // 1.过滤文本(这里只是包含文字信息和表情信息)
       let innerHTML = this._filterSpace(this.$refs.innercontent.innerHTML)
       let innerText = this.$refs.innercontent.textContent
@@ -243,8 +240,12 @@ export default {
     },
     _insertMessageItemToweb (timeinterval, content, innerHTML) {
       let textitem = {'msg_id': timeinterval, content: content, 'from_id': this.loginInfo.uid, 'msg_type': '1'}
-      let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
-      textitem['showtime'] = minus > 60000
+      if (this.chathistory.length !== 0) {
+        let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
+        textitem['showtime'] = minus > 60000
+      } else {
+        textitem['showtime'] = true
+      }
       textitem['from_head_img'] = this.loginInfo.header
       textitem['to_uid'] = this.chatObj.id
       textitem['to_head_img'] = this.chatObj.head_img
@@ -338,8 +339,12 @@ export default {
     },
     _insertImageMessageToWeb (timeinterval, src) {
       let imgitem = {'msg_id': timeinterval, 'from_id': this.loginInfo.uid, 'msg_type': '2', 'src': src}
-      let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
-      imgitem['showtime'] = minus > 60000
+      if (this.chathistory.length === 0) {
+        imgitem['showtime'] = true
+      } else {
+        let minus = timeinterval - new Date(this.chathistory[this.chathistory.length - 1].ctime).getTime()
+        imgitem['showtime'] = minus > 60000
+      }
       imgitem['from_head_img'] = this.loginInfo.header
       imgitem['to_uid'] = this.chatObj.id
       imgitem['to_head_img'] = this.chatObj.head_img
@@ -451,7 +456,7 @@ export default {
   }
 }
 </script>
-<style lang="stylus" scoped>
+<style lang="stylus">
 @import '../../css/mixin.styl'
 @import '../../css/chat.styl'
 // 聊天内容
@@ -520,4 +525,12 @@ export default {
         font-size 15px
         border-radius 4px
         margin-left 20px
+      div
+        white-space nowrap
+        text-overflow ellipsis
+        overflow hidden
+        max-width 75%
+        color #333
+        float right
+        line-height 30px
 </style>

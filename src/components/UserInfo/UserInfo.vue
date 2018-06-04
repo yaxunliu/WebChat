@@ -1,12 +1,16 @@
 <!-- 用户信息组件 -->
 <template>
   <div class="userinfo-warapper">
-    <UserHistory :chatObj="chatObj" :loginInfo="loginInfo"></UserHistory>
+    <UserHistory v-if="loginInfo.usertype === 0" :chatObj="chatObj" :loginInfo="loginInfo"></UserHistory>
+    <customerService v-else-if="loginInfo.usertype === 1 && loginInfo.uid === '12'" :chatObj="chatObj" :loginInfo="loginInfo"></customerService>
+    <expert v-else :chatObj="chatObj" :loginInfo="loginInfo"></expert>
   </div>
 </template>
 
 <script>
 import UserHistory from './userHistory/userHistory'
+import customerService from './customService/customServic'
+import expert from './expert/expert'
 export default {
   props: {
     chatObj: { // 当前聊天对象的用户信息
@@ -27,7 +31,9 @@ export default {
     }
   },
   components: {
-    UserHistory
+    UserHistory,
+    customerService,
+    expert
   }
 }
 </script>

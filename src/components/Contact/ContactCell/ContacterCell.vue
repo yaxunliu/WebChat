@@ -1,6 +1,6 @@
 <!-- 联系人cell -->
 <template>
-  <li v-if="contacterinfo" :class="_exchangeSelectCls()" @click="_clickContactCell()">
+  <li v-if="contacterinfo" :class="_exchangeSelectCls()" :style="contacterinfo.groupSelect ? 'background-color: #316dc9' : (this.contacterinfo.select ? 'background-color: #316dc9' : 'background-color: #545454')" @click="_clickContactCell">
     <img :src="contacterinfo.head_img">
     <span  v-if="contacterinfo.newtip && !contacterinfo.select" id="tip"></span>
     <span class="nick">{{contacterinfo.nick}}</span>
@@ -11,21 +11,32 @@
 
 <script>
 export default {
+  props: ['groupSendModel', 'item'],
+  watch: {
+    groupSendModel (val) {
+    },
+    'item.groupSelect': function (val, old) {
+    }
+  },
   data () {
     return {
       'contacterinfo': null
     }
   },
   mounted () {
-    this.contacterinfo = this.$attrs.item
+    this.contacterinfo = this.item
   },
   methods: {
     _exchangeSelectCls () {
-      console.log('select status', this.contacterinfo.select)
       return this.contacterinfo.select ? 'contact-cell' + ' ' + 'select-contact-cell' : 'contact-cell'
     },
     _clickContactCell () {
-      typeof this.$attrs.clickContactCell === 'function' && this.$attrs.clickContactCell(this.contacterinfo)
+      if (!this.groupSendModel) {
+        typeof this.$attrs.clickContactCell === 'function' && this.$attrs.clickContactCell(this.contacterinfo)
+      } else {
+        this.contacterinfo.groupSelect = !this.contacterinfo.groupSelect
+        typeof this.$attrs.groupClick === 'function' && this.$attrs.groupClick()
+      }
     }
   }
 }

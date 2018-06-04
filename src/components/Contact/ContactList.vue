@@ -16,16 +16,14 @@
       </div>
       <div class="contact-list" ref="contacterlist" :style="loginInfo.usertype === 0 ? 'height:551px' : 'height:606px'">
         <div v-if="contactlist !== null" v-for = "group in contactlist" :key="group.name" class="contact-group-item">
-          <img v-if="group.show" src="../../assets/images/arrow.png" style="transform:rotate(90deg)">
-          <img v-else src="../../assets/images/arrow.png">
-          <a href="#" class="groupname" @click="_clickGroupItem(group)">{{group.name}}<span v-if="group.newtips" class="newtip"></span></a>
-          <ul v-if="group.show">
-            <ContactCell v-for = "subitem in group.data" :key="subitem.id" :item="subitem" :clickContactCell="_clickContactCell"></ContactCell>
+          <groupHeader :group="group" :groupSendModel="groupSendModel" :selectGroup="_selectGroupSendGroup"></groupHeader>
+          <ul v-show="group.show">
+            <ContactCell v-for = "subitem in group.data" :key="subitem.id" :item="subitem" :clickContactCell="_clickContactCell" :groupSendModel="groupSendModel" :groupClick="_selectGroupSendGroup"></ContactCell>
           </ul>
         </div>
       </div>
       <div v-if="loginInfo.usertype === 0" class="group-send">
-        <a href="#" class="send">群发</a>
+        <a href="#" class="send" @click="_enterGroupModel" v-text="groupSendModel ? '退出群发' : '群发'"></a>
         <a href="#" class="edit" @mouseover="_showEditArea" @mouseout="_hiddenEditArea">编辑</a>
         <ul v-if="showEditArea" class="editlist" @mouseout="_hiddenEditArea">
           <li @mouseover="_showEditArea(true)"><a href="#" class="edit-item" @click="_showCreateGroup(true)">创建分组</a></li>
@@ -46,12 +44,15 @@ import { currentTime } from '../../common/category'
 import newGroup from '../../components/Contact/NewGroup/newGroup'
 import editGroup from '../../components/Contact/EditGroup/editGroup'
 import moveUser from '../../components/Contact/MoveUser/moveUser'
+import groupHeader from './ContactHeader/contactHeader'
+
 export default {
   components: {
     ContactCell,
     newGroup,
     editGroup,
-    moveUser
+    moveUser,
+    groupHeader
   },
   props: {
     loginInfo: {
@@ -75,6 +76,7 @@ export default {
   },
   data () {
     return {
+      'groupSendModel': false,
       'showMoveUsers': false, // 是否显示移动用户组件
       'showCreateGroup': false, // 是否显示创建分组组件
       'showEditGroup': false, // 是否显示编辑分组
@@ -85,7 +87,8 @@ export default {
       'contactSortGroupList': {}, // 排列后的组数据通过用户的id快读查询到对应的组模型(数组)
       'selectItem': null, // 选择的聊天对象
       'tempData': null, // 临时数据存储用来数据转换
-      'dataReady': false // 数据是否准备完成
+      'dataReady': false, // 数据是否准备完成
+      'groupModel': {'nick': '群聊', 'users': {}, 'chatModel': 'group', 'remark': '', 'id': null}
     }
   },
   watch: {
@@ -109,7 +112,7 @@ export default {
         content = '[图片]'
       }
       // 2.更新消息发送的状态
-      this.contactSortList[id].map((item) => {
+      typeof this.contactSortList[id] !== 'undefined' && this.contactSortList[id].map((item) => {
         if (item.id === id) {
           item.lastMessage = content
           item.lastTime = time
@@ -128,6 +131,48 @@ export default {
     }
   },
   methods: {
+    _selectGroupSendGroup (group) {
+      // 修改数据
+      if (group) {
+        this.groupModel.users[group.name] = group
+      }
+      let str = '已选择'
+      let ids = []
+      Object.keys(this.groupModel.users).forEach(key => {
+        let selectUsers = this.groupModel.users[key].data.filter((subitem) => {
+          if (subitem.groupSelect) {
+            ids.push(subitem.id)
+            return true
+          }
+          return false
+        })
+        if (selectUsers.length !== 0) {
+          str += (key + ' ' + '<span style="color: red">' + selectUsers.length + '</span>' + ' ' + '人')
+        }
+      })
+      if (str === '已选择') { str = '未选择' }
+      this.groupModel.remark = str
+      this.groupModel.id = ids
+      console.log('ids', ids)
+      // 更新数据
+      typeof this.$attrs.begainGroupSend === 'function' && this.$attrs.begainGroupSend(true, this.groupModel)
+    },
+    _enterGroupModel () {
+      this.groupSendModel = !this.groupSendModel
+      // 1.chat 进入群发编辑模式
+      if (this.groupSendModel) {
+        typeof this.$attrs.begainGroupSend === 'function' && this.$attrs.begainGroupSend(true, this.groupModel)
+      } else { // 取消编辑模式
+        this.groupModel = {'nick': '群聊', 'users': {}, 'chatModel': 'group', 'remark': ''}
+        this.contactlist.map((group) => {
+          group.groupSelect = false
+          group.data.map((subitem) => {
+            subitem.groupSelect = false
+          })
+        })
+        typeof this.$attrs.begainGroupSend === 'function' && this.$attrs.begainGroupSend(false)
+      }
+    },
     _createGroupSuccess (success) {
       this._showCreateGroup(false)
       if (success) { this._initialData() }
@@ -171,6 +216,7 @@ export default {
       })
     },
     _search () {
+      if (this.groupSendModel) { return 0 }
       let searchText = this.$refs.searchinput.value
       if (searchText === '') {
         this.searchResult = [ ]
@@ -187,9 +233,6 @@ export default {
           })
         })
       }
-    },
-    _clickGroupItem (item) {
-      item.show = !item.show
     },
     _filterMessage (nick, messagelist) {
       if (messagelist === null) {
@@ -299,11 +342,13 @@ export default {
       jsonp('/priapi1/get_puber_contacters').then((res) => {
         // 1.对分组数据进行初始化处理
         res.map((item) => {
+          item.groupSelect = false
           item.show = false
           item.newMessageTipList = {}
           item.newtips = false
           if (item.data) {
             item.data.map((subitem) => {
+              subitem.groupSelect = false
               subitem.select = false
               subitem.lastMessage = ' '
               subitem.lastTime = ' '
@@ -326,7 +371,9 @@ export default {
         } else { // 历史数据加载完成 将聊天数据注入到最终的数据中
           res.map((groupinfo) => {
             if (groupinfo.data) {
+              groupinfo.groupSelect = false
               groupinfo.data.map((subitem) => {
+                subitem.groupSelect = false
                 if (subitem.nick === '' || subitem.nick === undefined || subitem.nick === null) {
                   subitem.nick = '用户' + subitem.id
                 }
@@ -430,30 +477,6 @@ export default {
       position relative
       box-sizing border-box
       overflow hidden
-      img
-        width 10px
-        height 10px
-        position absolute
-        left 16px
-        top 15px
-      .groupname
-        display inline-block
-        width 100%
-        height 40px
-        line-height 40px
-        font-size 14px
-        padding-left 52px
-        text-decoration none
-        box-sizing border-box
-        color white
-        .newtip
-          position absolute
-          width 6px
-          height 6px
-          margin-top 27px
-          margin-left 6px
-          border-radius 3px
-          background-color red
       ul
         overflow hidden
   .group-send

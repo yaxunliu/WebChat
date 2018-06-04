@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <ContactList id="contactlist" :selectChat="_selectChatObj" :loginInfo="loginInfo" :updateMessage="updateMessage" :contactListNewTip="contactListNewTip" :contactOfflineMessages="contactOfflineMessages" :searchSelectChatObj="_searchSelectChatObj"></ContactList>
+    <ContactList id="contactlist" :selectChat="_selectChatObj" :loginInfo="loginInfo" :updateMessage="updateMessage" :contactListNewTip="contactListNewTip" :contactOfflineMessages="contactOfflineMessages" :searchSelectChatObj="_searchSelectChatObj" :begainGroupSend="_begainGroupSend"></ContactList>
     <Chat v-if="chatObject" id="chat" :sendChatData="_sendMessage" :chatObj="chatObject" :loginInfo="loginInfo" :reachedmid="reachedMid" :newMessage="newMessage"></Chat>
     <Userinfo v-if="chatObject" id="userinfo" :chatObj="chatObject" :loginInfo="loginInfo"></Userinfo>
     <Placeholder v-if="!chatObject" id="placeholder"></Placeholder>
@@ -46,6 +46,14 @@ export default {
     this._startConnectWs()
   },
   methods: {
+    _begainGroupSend (editStaus, groupModel) {
+      console.log('editStaus', editStaus)
+      if (editStaus) {
+        this.chatObject = groupModel
+      } else {
+        this.chatObject = null
+      }
+    },
     _searchSelectChatObj (chatObj) {
       this.chatObject = chatObj
     },
@@ -62,6 +70,7 @@ export default {
     },
     // 选中聊天对象开始聊天
     _selectChatObj (chatObj) {
+      console.log('chatObj', chatObj)
       if (this.chatObject === chatObj) { return 0 }
       this.newMessage = null
       this.chatObject = chatObj
@@ -84,6 +93,7 @@ export default {
       }
       wsClient.onmessage = (message) => {
         let json = JSON.parse(message.data)
+        console.log('json', json)
         // 2.2在线消息状态确认
         if (json.code === 10000) {
           this._handleMessageStatus(json)
@@ -143,7 +153,10 @@ export default {
       this.reachedMid = json.mid
     },
     _handleErrorMessage (json) {
-
+      // 11022 不允许给该用户发消息
+      if (json.code === 11022) {
+        alert(json.err_info)
+      }
     },
     _clearTimer () {
       clearInterval(window.socketTimer)
